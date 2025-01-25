@@ -1,0 +1,62 @@
+.include "m328PBdef.inc"
+.def xl = r24 ; delay loop count
+.def xh = r25
+.def iLoopRl = r26 ; inner loop register low
+.def iLoopRh = r27 ; inner loop register high
+.equ iVal = 3999 ; inner loop value
+.def p = r16 ;position
+; initialize stack pointer
+ldi r24, LOW(RAMEND)
+out SPL, r24
+ldi r24, HIGH(RAMEND)
+out SPH, r24
+ldi p,0xFF
+out DDRD,p ;port D as output
+ldi p,0x01 ;trail in LSB
+out PORTD,p
+set ;T flag = 1 (direction lef
+left:
+rcall wait_x_msec ;wait
+lsl p ;move to the left
+out PORTD,p
+cpi p,0x80 ;Is it time to turn around?
+breq turn_right ;if yes, turn
+rjmp left ;if no, continue
+right:
+rcall wait_x_msec ;wait
+lsr p ;move to the right
+Α B C D F0 F1
+0x 51 0x 41 0x 21 0x 01 0x EF 0x DF
+0x 52 0x 43 0x 24 0x 05 0x EB 0x DB
+0x 53 0x 45 0x 27 0x 09 0x E5 0x D3
+0x 54 0x 47 0x 2A 0x 0D 0x E7 0x D5
+0x 55 0x 49 0x 2D 0x 11 0x EB 0x C7
+0x 56 0x 4B 0x 30 0x 15 0x EB 0x CB
+
+out PORTD,p ;update PortD
+cpi p,0x01 ;Is it time to turn around?
+breq turn_left ;if yes, turn
+rjmp right ;else, continue
+turn_right:
+clt ;T flag = 0 (direction righ
+rcall wait_x_msec ;wait
+rjmp right ;start moving to the right
+turn_left:
+set ;T flag = 1 (direction lef
+rcall wait_x_msec ;wait
+rjmp left ;start moving to the left
+
+wait_x_msec:
+ldi xl,LOW(200)
+ldi xh,HIGH(200)
+rcall delay1ms
+ret
+delay1ms:
+ldi iLoopRl,LOW(iVal)
+ldi iLoopRh,HIGH(iVal)
+iLoop: sbiw iLoopRl,1
+brne iLoop
+sbiw xl,1
+brne delay1ms
+nop
+ret
