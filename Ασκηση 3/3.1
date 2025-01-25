@@ -1,0 +1,90 @@
+.include "m328PBdef.inc"
+.def xl = r24 ;καταχωρητες για την
+.def xh = r25 ;χρονικη καθυστερηση
+.def iLoopRl = r26
+.def iLoopRh = r27
+.equ iVal = 3998
+.org 0x00
+Table:
+.dw 0x0005, 0x001A, 0x002E, 0x0042, 0x0057, 0x006B, 0x0080, 0x0094, 0x00A8, 0x00BD,
+0x00D1, 0x00E6, 0x00FA
+;πινακας με duty cycles
+ldi r16,LOW(RAMEND)
+out SPL,r16
+ldi r16,HIGH(RAMEND)
+out SPH,r16
+
+ldi r23, (0<<WGM13) | (1<< WGM12) | (1<<CS12) | (0<<CS11) | (0<<CS10) ; CK/256
+sts TCCR1B, r23
+ldi r23, (0<<WGM11) | (1<< WGM10) | (0<<COM1A0) | (1<< COM1A1)
+sts TCCR1A, r23
+ldi r23, 128
+sts OCR1AL, r23
+clr r16 ;θυρα εισοδου
+out DDRD,r16
+ser r16 ;θυρες εξόδου
+out DDRB, r16
+out DDRC,r16
+ldi ZH,HIGH(Table*2) ;πίνακας
+ldi ZL,LOW(Table*2)
+adiw ZL,12
+ldi r18, 50
+main:
+rcall wait_x_msec
+in r17,PIND
+sbrs r17,3 ;αν πατηθηκε PD3
+rjmp d3in
+
+sbrs r17,4 ;αν πατηθηκε PD4
+rjmp d4sub
+rjmp main
+d3in:
+rcall wait_x_msec
+out PORTC, r18
+cpi r18, 98 ;αν δεν φτασαμε 98%
+brne d3
+rjmp main
+d3:
+ldi r19,8
+add r18,r19
+adiw ZL,2 ;προχωρα στο επομενο ποσοστό
+lpm
+mov r23,r0
+sts OCR1AL, r23 ;αλλαξε duty cycle
+rjmp main
+d4sub:
+rcall wait_x_msec
+cpi r18, 2 ;αν δεν φτασαμε 2%
+brne d4
+out PORTC, r18
+rjmp main
+d4:
+out PORTC, r18
+ldi r19,8
+sub r18,r19
+sbiw ZL,2 ;προχωρα στο προηγουμενο ποσοστό
+lpm
+mov r23,r0
+sts OCR1AL, r23 ;αλλαξε duty cycle
+rjmp main
+;loop από προηγουμενη ασκηση
+wait_x_msec:
+ldi xl,LOW(60)
+ldi xh,HIGH(60) ; initialize delay multiple for 5 sec
+rcall delay1ms ; call delay subroutine
+ret ; jump back to start
+delay1ms:
+ldi iLoopRl,LOW(iVal) ; 1 cycles
+nop
+ldi iLoopRh,HIGH(iVal) ; 1 cycle
+nop
+iLoop: sbiw iLoopRl,1 ; 2 cycles
+brne iLoop ; 1 or 2 cycles
+; 3999*4-1=15995
+nop
+
+sbiw xl,1 ; 2 cycles
+brne delay1ms ; 1 or 2 cycles
+nop ; 1 cycle
+; (2+15995+2+2)*x-1+1 = 16001x => 16000x/16*10^6 = 1ms
+ret ; 4 cycles
