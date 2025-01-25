@@ -1,0 +1,37 @@
+.include "m328PBdef.inc"
+.def mask = r16 ; mask register
+.def ledR = r17 ; led register
+.def xl = r24 ; delay loop count
+.def xh = r25
+.def iLoopRl = r26 ; inner loop register low
+.def iLoopRh = r27 ; inner loop register high
+.equ iVal = 3999 ; inner loop value
+.cseg
+.org 0x00
+ldi r16,LOW(RAMEND) ; initialize
+out SPL,r16 ; stack pointer
+ldi r16,HIGH(RAMEND) ; to RAMEND
+out SPH,r16
+clr ledR ; clear led register
+ldi mask,(1<<PINB0) ; load 00000001 into mask register
+out DDRB,mask ; set PINB0 to output
+start: eor ledR,mask ; toggle PINB0 in led register
+out PORTB,ledR ; write led register to PORTB
+rcall wait_x_msec
+rjmp start
+wait_x_msec:
+ldi xl,LOW(60)
+ldi xh,HIGH(60) ; initialize delay multiple for 60 msec
+rcall delay1ms ; call delay subroutine
+ret ; jump back to start
+delay1ms:
+ldi iLoopRl,LOW(iVal) ; 1 cycles
+ldi iLoopRh,HIGH(iVal) ; 1 cycle
+iLoop: sbiw iLoopRl,1 ; 2 cycles
+brne iLoop ; 1 or 2 cycles
+; 3999*4-1=15995
+sbiw xl,1 ; 2 cycles
+brne delay1ms ; 1 or 2 cycles
+nop ; 1 cycle
+; (2+15995+2+2)*x-1+1 = 16001x => 16001x/16*10^6 = 1.0000625ms
+ret ; 4 cycles
