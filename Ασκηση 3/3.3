@@ -1,0 +1,52 @@
+#define F_CPU 16000000UL
+#include <xc.h>
+#include <util/delay.h>
+int dc[13]={5,26,46,66,87,107,128,148,168,189,209,230,250};
+int dcindex = 6,adc_value;
+int mode = 1;
+uint16_t adc_read() {
+uint16_t val = 0;
+ADCSRA |= (1 << ADSC);
+while((ADCSRA & (1 << ADSC))) {}
+val += ADC;
+return val;
+}
+void main(void) {
+TCCR1A = (1<<WGM10)|(1<<COM1A1);
+TCCR1B = (1<<WGM12)|(1<<CS12);
+ADMUX = (1 << REFS0); //ADC0
+ADCSRA = (1 << ADEN) | (1 << ADPS2) | (1 << ADPS1) | (1 << ADPS0);
+DDRC = 0x00;
+DDRB = 0xFF; //PB as output
+DDRD = 0x00;
+PORTB = 0x00;
+OCR1A = dc[dcindex];
+
+while (1) {
+if (!(PIND & (1 << PD6))) { // If PD6 is pressed
+mode = 1;
+_delay_ms(200);
+}
+if (!(PIND & (1 << PD7))) { // If PD7 is pressed
+mode = 2;
+_delay_ms(200);
+}
+if (mode == 1){
+if ((!(PIND & (1 << PD1)))& (dcindex < 12)){
+dcindex = dcindex + 1;
+OCR1A = dc[dcindex];
+_delay_ms(200);
+}
+if ((!(PIND & (1 << PD2)))& (dcindex > 0)){
+dcindex = dcindex - 1;
+OCR1A = dc[dcindex];
+_delay_ms(200);
+}
+}
+if (mode == 2){
+adc_value = adc_read();
+adc_value = adc_value/4;
+OCR1A = adc_value;
+}
+}
+}
