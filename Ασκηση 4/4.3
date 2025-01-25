@@ -1,0 +1,116 @@
+#define F_CPU 16000000UL
+#include <xc.h>
+#include <util/delay.h>
+#define VREF 5.0
+#define ADC_MAX 1024.0
+void Write_2_Nibbles(uint8_t in) {
+uint8_t temp = in;
+uint8_t p = PIND;
+p &= 0x0F;
+in &= 0xF0;
+in |= p;
+PORTD = in;
+PORTD |= 0x08;
+PORTD &= 0xF7;
+in = temp;
+in &= 0x0F;
+in = in << 4;
+in |= p;
+PORTD = in;
+PORTD |= 0x08;
+PORTD &= 0xF7;
+return;
+}
+void LCD_data(uint8_t c) {
+PORTD |= 0x04;
+Write_2_Nibbles(c);
+_delay_us(100);
+return;
+}
+void LCD_command(uint8_t c) {
+PORTD &= 0xFB;
+Write_2_Nibbles(c);
+_delay_us(100);
+return;
+}
+void LCD_init(void) {
+_delay_ms(40);
+
+PORTD = 0x30;
+PORTD |= 0x08;
+PORTD &= 0xF7;
+_delay_us(100);
+PORTD = 0x30;
+PORTD |= 0x08;
+PORTD &= 0xF7;
+_delay_us(100);
+PORTD = 0x20;
+PORTD |= 0x08;
+PORTD &= 0xF7;
+_delay_us(100);
+LCD_command(0x28);
+LCD_command(0x0C);
+LCD_command(0x01);
+_delay_us(5000);
+LCD_command(0x06);
+}
+int c,a;
+int main()
+{
+DDRB = 0xFF;
+DDRD = 0xFF;
+ADMUX = (1 << REFS0) | (1 << MUX1);
+ADCSRA = (1 << ADEN) | (1 << ADPS2) | (1 << ADPS1) | (1 << ADPS0);
+int g=2;
+while(1) {
+ADCSRA |= (1 << ADSC);
+while (ADCSRA & (1 << ADSC));
+float adc_val = ADC;
+adc_val = adc_val * 5 / 1024; //conversion to V
+a = (int)(adc_val);
+a = (uint8_t)(a);
+c = (int)(adc_val*100) - (a* 100);
+c = (uint8_t)(c);
+if(a != 0){
+if(g!=1){
+LCD_init();
+LCD_data('G');
+LCD_data('A');
+LCD_data('S');
+LCD_data(' ');
+LCD_data('D');
+LCD_data('E');
+LCD_data('T');
+LCD_data('E');
+LCD_data('C');
+LCD_data('T');
+LCD_data('E');
+LCD_data('D');
+g=1;
+}
+PORTB = 0x00;
+_delay_ms(50);
+PORTB = 0xFF;
+_delay_ms(49);
+}
+else{
+if(g!=0){
+LCD_init();
+LCD_data('C');
+LCD_data('L');
+LCD_data('E');
+LCD_data('A');
+LCD_data('R');
+
+g=0;
+}
+_delay_ms(99);
+if(c < 16)PORTB =0x01;
+else if(c < 32)PORTB =0x02;
+else if(c < 48)PORTB =0x04;
+else if(c < 64)PORTB =0x08;
+else if(c < 80)PORTB =0x10;
+else{PORTB =0x20;}
+}
+}
+}
