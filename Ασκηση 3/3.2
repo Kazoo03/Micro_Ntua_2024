@@ -1,0 +1,61 @@
+#define F_CPU 16000000UL
+#include <xc.h>
+#include <util/delay.h>
+int dc[13]={5,26,46,66,87,107,128,148,168,189,209,230,250};
+int dcindex = 6;
+int adc_value = 0, sum = 0, i = 1;
+void set_led(uint16_t average) {
+PORTD = 0x00;
+if (average < 200) {
+PORTD = (1 << PD0); // LED 1
+} else if (average < 400) {
+PORTD = (1 << PD1); // LED 2
+} else if (average < 600) {
+PORTD = (1 << PD2); // LED 3
+} else if (average < 800) {
+PORTD = (1 << PD3); // LED 4
+} else {
+PORTD = (1 << PD4); // LED 5
+}
+}
+uint16_t adc_read() { //διαβασε ADC
+uint16_t val = 0;
+ADCSRA |= (1 << ADSC);
+while((ADCSRA & (1 << ADSC))) {}
+val = ADC;
+return val;
+}
+void main(void) {
+TCCR1A = (1<<WGM10)|(1<<COM1A1);
+TCCR1B = (1<<WGM12)|(1<<CS10);
+ADMUX = (1 << REFS0) | (1 << MUX0); //ADC1 ,AVCC with external capacitor at AREF pin
+ADCSRA = (1 << ADEN) | (1 << ADPS2) | (1 << ADPS1) | (1 << ADPS0); //division factor
+128,ADC Enable
+DDRC = 0x00; //C εισοδος
+DDRB = 0xFF; //Β εξοδος
+DDRD = 0b00111111;
+PORTB = 0x00;
+OCR1A = dc[dcindex];
+
+while (1) {
+if ((!(PIND & (1 << PD6)))& (dcindex < 12)){
+dcindex = dcindex + 1; //επομενο ποσοστο
+OCR1A = dc[dcindex]; //αλλαξε duty cycle
+_delay_ms(50);
+}
+if ((!(PIND & (1 << PD7)))& (dcindex > 0)){
+dcindex = dcindex - 1; //προηγουμενο ποσοστο
+OCR1A = dc[dcindex];
+_delay_ms(50);
+}
+adc_value = adc_read(); //διαβασε ADC
+sum = sum + adc_value;
+_delay_ms(100);
+if (i==16){ //καθε 16 φορές
+int average = sum/16;
+set_led(average); //βρες μέσο όρο
+sum=0;
+i=1;}
+else {i++;}
+}
+}
