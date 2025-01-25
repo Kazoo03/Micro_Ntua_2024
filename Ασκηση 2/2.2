@@ -1,0 +1,79 @@
+.include "m328PBdef.inc"
+.equ FOSC_MHZ = 16
+.equ DEL_ms = 2000
+.equ DEL_NU = FOSC_MHZ*DEL_ms
+.org 0x0
+rjmp reset
+.org 0x2
+rjmp ISR0
+ldi r24,LOW(RAMEND)
+out SPL, r24
+ldi r24, HIGH(RAMEND)
+out SPH, r24
+reset:
+ser r26
+out DDRC, r26
+clr r26
+out DDRB, r26
+ldi r24,(1<<ISC01)|(1<<ISC00)
+sts EICRA, r24
+ldi r24,(1<<INT0)
+out EIMSK, r24
+sei
+
+loop1: ;2.1 με τις τροποποιήσεις
+clr r26
+loop2:
+out PORTC, r26
+
+ldi r24, low(DEL_NU)
+ldi r25, high(DEL_NU)
+rcall delay_ms
+inc r26
+
+cpi r26, 32
+breq loop1
+rjmp loop2
+delay_ms:
+ldi r23, 249
+loop_inn:
+dec r23
+nop
+brne loop_inn
+sbiw r24,1
+brne delay_ms
+ret
+ISR0:
+push r25
+push r24
+in r24, SREG
+push r24
+in r27,PINB ;αποθήκευσε την είσοδο B
+clr r28
+ldi r29,1
+ldi r21,4
+loopcount: ;για 4 φορές...
+mov r30,r27
+andi r30,1 ;πάρε LSB
+cpse r30,r29 ;Αν είναι 0 (πατημένο)
+inc r28 ;αύξησε μετρητή κατά 1, αλλιώς όχι
+lsr r27 ;logical shift right και επανέλαβε
+dec r21 ;(ενολίγοις μέτρησε πόσα κουμπιά είναι
+brne loopcount ; πατημένα)
+ldi r29,0 ;αν μετρητής==0 τότε πήγαινε στο end
+cpi r28,0
+breq end
+loopprint: ;αλλιώς, για φορές την τιμή του μετρητή...
+ldi r30,1 ;πάρε τον καταχωρητή r29
+lsl r29 ;κάνε logical shift left
+add r29,r30 ;πρόσθεσε 1 (άναψε led LSB)
+dec r28
+brne loopprint ;και επανέλαβε
+end:
+out PORTC,r29 ;εκτύπωσε r29
+pop r24
+
+out SREG, r24
+pop r24
+pop r25
+reti
