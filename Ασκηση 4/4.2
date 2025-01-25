@@ -1,0 +1,83 @@
+#define F_CPU 16000000UL
+#include <xc.h>
+#include <util/delay.h>
+#define VREF 5.0
+#define ADC_MAX 1024.0
+void Write_2_Nibbles(uint8_t in) {
+uint8_t temp = in;
+uint8_t p = PIND;
+p &= 0x0F;
+in &= 0xF0;
+in |= p;
+PORTD = in;
+PORTD |= 0x08;
+PORTD &= 0xF7;
+in = temp;
+in &= 0x0F;
+in = in << 4;
+in |= p;
+PORTD = in;
+PORTD |= 0x08;
+PORTD &= 0xF7;
+return;
+}
+void LCD_data(uint8_t c) {
+PORTD |= 0x04;
+Write_2_Nibbles(c);
+_delay_us(100);
+return;
+}
+void LCD_command(uint8_t c) {
+PORTD &= 0xFB;
+Write_2_Nibbles(c);
+_delay_us(100);
+return;
+}
+void LCD_init(void) {
+_delay_ms(40);
+PORTD = 0x30;
+PORTD |= 0x08;
+PORTD &= 0xF7;
+_delay_us(100);
+PORTD = 0x30;
+PORTD |= 0x08;
+PORTD &= 0xF7;
+_delay_us(100);
+PORTD = 0x20;
+PORTD |= 0x08;
+PORTD &= 0xF7;
+_delay_us(100);
+LCD_command(0x28);
+LCD_command(0x0C);
+LCD_command(0x01);
+_delay_us(5000);
+LCD_command(0x06);
+}
+int a,b,c;
+int main()
+{
+DDRD = 0xFF;
+ADMUX = (1 << REFS0) | (1 << MUX0);
+
+ADCSRA = (1 << ADEN) | (1 << ADPS2) | (1 << ADPS1) | (1 << ADPS0);
+while(1) {
+LCD_init();
+ADCSRA |= (1 << ADSC);
+while (ADCSRA & (1 << ADSC));
+float adc_val = ADC;
+adc_val = adc_val * 5 / 1024; // υπολογισμός του ADC
+a = (int)(adc_val);
+a = (uint8_t)(a);
+b = (int)(adc_val*10) - (a* 10);
+b = (uint8_t)(b);
+c = (int)(adc_val*100) - (a* 100) - (b*10);
+c = (uint8_t)(c);
+a |= 0x30; // μάσκα για να παρουμε τα στοιχεία
+b |= 0x30;
+c |= 0x30;
+LCD_data(a);
+LCD_data('.');
+LCD_data(b);
+LCD_data(c);
+}
+}
