@@ -1,0 +1,93 @@
+.include "m328PBdef.inc"
+.def xl = r24 ;χρησιμοποιήσαμε το πρόγραμμα που είχαμε φτιάξει
+.def xh = r25 ;για χρονική καθυστέρηση στην 1η εργαστηριακή άσκηση
+.def iLoopRl = r26
+.def iLoopRh = r27
+.equ iVal = 3998
+.org 0x0
+rjmp reset
+.org 0x4
+rjmp ISR1
+ldi r24,LOW(RAMEND)
+out SPL, r24
+ldi r24, HIGH(RAMEND)
+out SPH, r24
+reset:
+ldi r23,(1<<ISC11)|(0<<ISC10)
+sts EICRA, r23
+ldi r23,(1<<INT1)
+out EIMSK, r23
+sei
+ser r26
+out DDRB, r26
+main: ;κατάσταση όπου όλα τα led είναι σβηστά
+clr r16
+out PORTB, r16
+main2: ;περίμενε μέχρι να πρέπει να ανάψει το PB0
+cpi r16,1
+breq fir
+rjmp main2
+first: ;σε περίπτωση που το PB0 ήταν κλειστ
+out PORTB, r16 ;αναψε μόνο το PB0
+ldi r17,100
+loop1: ;ανά 50ms ελέγχεται αν πατήθηκε ξανά το PD3
+rcall wait_50_msec ;ώστε να ανάψουν όλα τα led
+cpi r16,63
+breq refreshed ;αν συμβεί αυτό, πήγαινε στη ρουτίνα refreshed
+dec r17
+brne loop1 ;επανέλαβε για 100*50=5sec
+rjmp main
+refreshed:
+out PORTB,r16 ;αναψε PB5-PB0
+ldi r17,10
+
+ldi r16,1 ;κάνε r16 =1
+loop2:
+rcall wait_50_msec ;ανά 50ms ελέγχεται αν πατήθηκε ξανά το PD3
+cpi r16,63
+breq refreshed ;αν συμβεί, ξαναρχισε το refreshed
+dec r17
+brne loop2 ;επανέλαβε για 10*50 = 0.5 sec
+rjmp first ;πήγαινε στη first για να ανάψει μονο το
+
+;κώδικας για χρονοκαθυστέρηση
+wait_50_msec:
+ldi xl,LOW(50)
+ldi xh,HIGH(50) ; initialize delay multiple for 50 msec
+rcall delay1ms ; call delay subroutine
+ret ; jump back to start
+delay1ms:
+ldi iLoopRl,LOW(iVal) ; 1 cycles
+nop
+ldi iLoopRh,HIGH(iVal) ; 1 cycle
+nop
+iLoop: sbiw iLoopRl,1 ; 2 cycles
+brne iLoop ; 1 or 2 cycles
+; 3999*4-1=15995
+nop
+sbiw xl,1 ; 2 cycles
+brne delay1ms ; 1 or 2 cycles
+nop ; 1 cycle
+; (2+15995+2+2)*x-1+1 = 16001x => 16000x/16*10^6 = 1ms
+ret ; 4 cycles
+
+ISR1:
+push r25
+push r24
+in r24, SREG
+push r24
+cpi r16, 0 ;αν τα led ήταν σβηστά πήγαινε στο f
+breq fir ;αλλιως στο se
+rjmp sect
+fi
+ldi r16, 1 ;θέσε r16=1
+rjmp end
+sect:
+ldi r16, 63 ;θέσε r16=63
+end:
+pop r24
+out SREG, r24
+pop r24
+
+pop r25
+reti
